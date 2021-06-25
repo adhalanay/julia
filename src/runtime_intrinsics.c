@@ -218,11 +218,12 @@ JL_DLLEXPORT jl_value_t *jl_atomic_pointerreplace(jl_value_t *p, jl_value_t *exp
     }
 }
 
-JL_DLLEXPORT jl_value_t *jl_atomic_fence(jl_value_t *order)
+JL_DLLEXPORT jl_value_t *jl_atomic_fence(jl_value_t *order_sym)
 {
-    JL_TYPECHK(fence, symbol, order);
-    (void)jl_get_atomic_order_checked((jl_sym_t*)order, 0, 0);
-    jl_fence();
+    JL_TYPECHK(fence, symbol, order_sym);
+    enum jl_memory_order order = jl_get_atomic_order_checked((jl_sym_t*)order_sym, 0, 0);
+    if (order != jl_memory_order_notatomic)
+        jl_fence();
     return jl_nothing;
 }
 

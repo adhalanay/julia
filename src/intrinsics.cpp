@@ -696,6 +696,22 @@ static jl_cgval_t emit_pointerset(jl_codectx_t &ctx, jl_cgval_t *argv)
     return e;
 }
 
+static jl_cgval_t emit_atomicfence(jl_codectx_t &ctx, jl_cgval_t *argv)
+{
+    const jl_cgval_t &ord = argv[0];
+    if (ord.constant && jl_is_symbol(ord.constant)) {
+        enum jl_memory_order order = jl_get_atomic_order((jl_sym_t*)ord.constant, false, false);
+        if (order == jl_memory_order_invalid) {
+            emit_atomic_error(ctx, "invalid atomic ordering");
+            return jl_cgval_t(); // unreachable
+        }
+        if (order != jl_memory_order_notatomic)
+            ctx.builder.CreateFence(get_llvm_atomic_order(order));
+        return ghostValue(jl_nothing_type);
+    }
+    return emit_runtime_call(ctx, atomic_fence, argv, 1);
+}
+
 static Value *emit_checked_srem_int(jl_codectx_t &ctx, Value *x, Value *den)
 {
     Type *t = den->getType();
@@ -924,6 +940,7 @@ static jl_cgval_t emit_intrinsic(jl_codectx_t &ctx, intrinsic f, jl_value_t **ar
     case pointerset:
         return emit_pointerset(ctx, argv);
     case atomic_fence:
+        return emit_atomicfence(ctx, argv);
     case atomic_pointerref:
     case atomic_pointerset:
     case atomic_pointerswap:
